@@ -30,4 +30,14 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === 'Super Admin';
+    }
+
+    public function careerProfile()
+    {
+        return $this->hasOne(CareerProfile::class);
+    }
 }
