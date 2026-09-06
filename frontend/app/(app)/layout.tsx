@@ -1,18 +1,18 @@
-import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/auth";
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/app/AppSidebar";
+import { AppNavbar } from "@/components/app/AppNavbar";
 
-export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getServerUser();
 
-  if (!user) redirect("/login");
-  if (user.role !== "Super Admin") redirect("/dashboard");
-
   return (
-    <div className="flex min-h-screen">
-      <aside className="w-64 border-r bg-muted/40 p-4">
-        <div className="mb-6 text-lg font-semibold">UBRA Admin</div>
-      </aside>
-      <main className="flex-1 p-6">{children}</main>
-    </div>
+    <SidebarProvider>
+      <AppSidebar user={user} />
+      <div className="flex min-h-svh flex-1 flex-col">
+        <AppNavbar />
+        <main className="flex-1 p-6">{children}</main>
+      </div>
+    </SidebarProvider>
   );
 }
