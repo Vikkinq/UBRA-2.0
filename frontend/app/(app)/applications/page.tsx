@@ -12,6 +12,14 @@ import type { JobApplication, PaginationMeta } from "@/lib/types/job-application
 import { getCompanyDisplayName, formatSalaryRange, formatAppliedDate } from "@/lib/format";
 import { apiFetch } from "@/lib/api-fetch";
 
+import { FormModal } from "@/components/FormModal";
+import {
+  ApplicationFormFields,
+  emptyApplicationFormValues,
+  type ApplicationFormValues,
+} from "@/components/app/applications/ApplicationFormFields";
+import type { FilterOption } from "@/lib/types/job-applications";
+
 export default function ApplicationsPage() {
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
@@ -20,6 +28,29 @@ export default function ApplicationsPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [statusOptions, setStatusOptions] = useState<FilterOption[]>([]);
+  const [employmentTypeOptions, setEmploymentTypeOptions] = useState<FilterOption[]>([]);
+  const [sourceOptions, setSourceOptions] = useState<FilterOption[]>([]);
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [formValues, setFormValues] = useState<ApplicationFormValues>(emptyApplicationFormValues);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  function openCreateModal() {
+    setFormValues(emptyApplicationFormValues);
+    setIsModalOpen(true);
+  }
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSubmitting(true);
+    // TODO: POST formValues to your job-applications endpoint via apiFetch,
+    // then re-run loadApplications() (or just refetch) to reflect the new row
+    console.log("TODO: submit", formValues);
+    setIsSubmitting(false);
+    setIsModalOpen(false);
+  }
 
   // Debounce: only update debouncedSearch 350ms after typing stops
   useEffect(() => {
@@ -49,6 +80,9 @@ export default function ApplicationsPage() {
         if (!cancelled) {
           setApplications(res.data);
           setMeta(res.meta);
+          setStatusOptions(res.statuses);
+          setEmploymentTypeOptions(res.employmentTypes);
+          setSourceOptions(res.sources);
         }
       } catch (err) {
         if (!cancelled) {
@@ -92,7 +126,7 @@ export default function ApplicationsPage() {
             </Button>
           </div>
 
-          <Button className="gap-2">
+          <Button className="gap-2" onClick={openCreateModal}>
             <Plus className="size-4" />
             Add Application
           </Button>
@@ -207,6 +241,24 @@ export default function ApplicationsPage() {
           </div>
         )}
       </div>
+
+      {/* Modal */}
+      <FormModal
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        title="Add Application"
+        description="Track a new job application."
+        onSubmit={handleSubmit}
+        isSubmitting={isSubmitting}
+      >
+        <ApplicationFormFields
+          values={formValues}
+          onChange={setFormValues}
+          statusOptions={statusOptions}
+          employmentTypeOptions={employmentTypeOptions}
+          sourceOptions={sourceOptions}
+        />
+      </FormModal>
     </div>
   );
 }

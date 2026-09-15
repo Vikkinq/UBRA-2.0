@@ -30,6 +30,6 @@ export interface PaginationMeta {
 }
 
 export interface FilterOption {
-  label: string;
+  label: string | null;
   value: number;
 }
