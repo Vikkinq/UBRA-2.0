@@ -26,6 +26,7 @@ class JobApplicationStoreRequest extends FormRequest
         return [
             'company_id' => ['nullable', 'required_without:company_name', 'exists:md_companies,id'],
             'company_name' => ['nullable', 'required_without:company_id', 'string', 'max:255'],
+            'industry_id' => ['nullable', 'exists:md_industries,id'],
             'status_id' => ['required', 'exists:md_application_statuses,id'],
             'employment_type_id' => ['nullable', 'exists:md_employment_types,id'],
             'source_id' => ['nullable', 'exists:md_job_sources,id'],

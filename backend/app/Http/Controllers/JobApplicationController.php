@@ -13,6 +13,8 @@ use App\Models\JobApplication;
 use App\Models\MdApplicationStatus;
 use App\Models\MdEmploymentType;
 use App\Models\MdJobSource;
+use App\Models\MdIndustry;
+use App\Models\MdCompany;
 
 class JobApplicationController extends Controller
 {
@@ -118,14 +120,48 @@ class JobApplicationController extends Controller
                     'value' => $source->id,
                 ])
                 ->values(),
+            'industries' => MdIndustry::query()
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->get(['id', 'name'])
+                ->map(fn (MdIndustry $industry) => [
+                    'label' => $industry->name,
+                    'value' => $industry->id,
+                ])
+                ->values(),
+
+            'companies' => MdCompany::query()
+                ->with('industry:id,name')
+                ->orderBy('name')
+                ->get(['id', 'name', 'industry_id'])
+                ->map(fn (MdCompany $company) => [
+                    'id' => $company->id,
+                    'name' => $company->name,
+                    'industry' => $company->industry
+                        ? ['id' => $company->industry->id, 'name' => $company->industry->name]
+                        : null,
+                ])
+                ->values(),
         ]);
     }
 
     public function store(JobApplicationStoreRequest $request)
     {
-        $jobApplication = $request->user()->jobApplications()->create($request->validated());
+        $data = $request->validated();
 
-        return response()->json($jobApplication->load(['company', 'status']), 201);
+        if (empty($data['company_id']) && !empty($data['company_name'])) {
+            $company = MdCompany::firstOrCreate(
+                ['name' => $data['company_name']],
+                ['industry_id' => $data['industry_id'] ?? null]
+            );
+
+            $data['company_id'] = $company->id;
+            $data['company_name'] = null;
+        }
+
+        $jobApplication = $request->user()->jobApplications()->create($data);
+
+        return response()->json($jobApplication->load(['company.industry', 'status']), 201);
     }
 
     public function show(JobApplication $jobApplication)
