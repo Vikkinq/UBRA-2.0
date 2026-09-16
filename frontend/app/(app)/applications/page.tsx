@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { JobApplication, PaginationMeta } from "@/lib/types/job-applications";
 import { getCompanyDisplayName, formatSalaryRange, formatAppliedDate } from "@/lib/format";
-import { apiFetch } from "@/lib/api-fetch";
+import { api } from "@/lib/api";
 
 import { FormModal } from "@/components/FormModal";
 import {
@@ -36,22 +36,48 @@ export default function ApplicationsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formValues, setFormValues] = useState<ApplicationFormValues>(emptyApplicationFormValues);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  function buildApplicationPayload(values: ApplicationFormValues) {
+    return {
+      company_id: null, // no company picker/search built yet — always sending company_name for now
+      company_name: values.companyName || null,
+      status_id: values.statusId ? Number(values.statusId) : null,
+      employment_type_id: values.employmentTypeId ? Number(values.employmentTypeId) : null,
+      source_id: values.sourceId ? Number(values.sourceId) : null,
+      job_title: values.jobTitle,
+      job_url: values.jobUrl || null,
+      location: values.location || null,
+      salary_min: values.salaryMin ? Number(values.salaryMin) : null,
+      salary_max: values.salaryMax ? Number(values.salaryMax) : null,
+      salary_currency: values.salaryCurrency || null,
+      applied_at: values.appliedAt || null,
+      notes: values.notes || null,
+    };
+  }
 
   function openCreateModal() {
     setFormValues(emptyApplicationFormValues);
     setIsModalOpen(true);
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSubmitting(true);
-    // TODO: POST formValues to your job-applications endpoint via apiFetch,
-    // then re-run loadApplications() (or just refetch) to reflect the new row
-    console.log("TODO: submit", formValues);
-    setIsSubmitting(false);
-    setIsModalOpen(false);
-  }
 
+    try {
+      await api.post("/job-applications", buildApplicationPayload(formValues));
+
+      setIsModalOpen(false);
+      setPage(1);
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      console.error(err);
+      // axios errors: err.response?.data?.errors holds Laravel's 422 validation object
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
   // Debounce: only update debouncedSearch 350ms after typing stops
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -75,7 +101,7 @@ export default function ApplicationsPage() {
           ...(debouncedSearch && { search: debouncedSearch }),
         });
 
-        const res = await apiFetch(`/job-applications?${params.toString()}`);
+        const { data: res } = await api.get(`/job-applications?${params.toString()}`);
 
         if (!cancelled) {
           setApplications(res.data);
@@ -98,7 +124,7 @@ export default function ApplicationsPage() {
     return () => {
       cancelled = true;
     };
-  }, [page, debouncedSearch]);
+  }, [page, debouncedSearch, refreshKey]);
 
   const pages = meta ? Array.from({ length: meta.lastPage }, (_, i) => i + 1) : [];
 

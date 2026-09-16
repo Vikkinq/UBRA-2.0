@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import axios from "axios";
 
-import { api } from "@/lib/api";
+import { api, authApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,11 +24,11 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await api.get("/sanctum/csrf-cookie");
-      await api.post("/login", { email, password });
+      await authApi.get("/sanctum/csrf-cookie");
+      await authApi.post("/login", { email, password });
 
-      const { data: user } = await api.get("/api/user");
-      router.push(user.role === "Super Admin" ? "/admin/dashboard" : "/dashboard");
+      const { data: user } = await api.get("/user");
+      router.push(user.redirect_path);
     } catch (err) {
       if (axios.isAxiosError(err)) {
         if (err.response?.status === 422) {
