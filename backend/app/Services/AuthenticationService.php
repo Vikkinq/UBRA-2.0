@@ -13,6 +13,7 @@ class AuthenticationService
             'name' => $user->name,
             'email' => $user->email,
             'role' => $user->role,
+            'redirect_path' => $this->redirectPathFor($user),
             'career_profile' => $user->careerProfile,
         ];
     }

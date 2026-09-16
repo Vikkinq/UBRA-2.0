@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const SESSION_COOKIE_NAME = "laravel_session";
+const SESSION_COOKIE_NAME = "laravel-session";
 
-async function verifySession(request: NextRequest): Promise<boolean> {
+async function getSessionUser(request: NextRequest): Promise<{ role: string } | null> {
   try {
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_FETCH}/user`, {
       headers: {
@@ -12,14 +12,14 @@ async function verifySession(request: NextRequest): Promise<boolean> {
       cache: "no-store",
     });
 
-    return res.ok;
+    if (!res.ok) return null;
+    return res.json();
   } catch {
-    return false;
+    return null;
   }
 }
 
 export async function middleware(request: NextRequest) {
-  console.log("MIDDLEWARE RUNNING:", request.nextUrl.pathname);
   const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME);
   const { pathname } = request.nextUrl;
 
@@ -27,23 +27,22 @@ export async function middleware(request: NextRequest) {
   const isProtectedRoute =
     pathname.startsWith("/dashboard") || pathname.startsWith("/applications") || pathname.startsWith("/admin");
 
-  // Fast path: no cookie at all, no need to call the backend
   if (isProtectedRoute && !sessionCookie) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Real check: cookie exists, but is the session actually still valid?
   if (isProtectedRoute && sessionCookie) {
-    const isValid = await verifySession(request);
-    if (!isValid) {
+    const user = await getSessionUser(request);
+    if (!user) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
   }
 
   if (isAuthRoute && sessionCookie) {
-    const isValid = await verifySession(request);
-    if (isValid) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
+    const user = await getSessionUser(request);
+    if (user) {
+      const destination = user.role === "Super Admin" ? "/admin/dashboard" : "/dashboard";
+      return NextResponse.redirect(new URL(destination, request.url));
     }
   }
 
