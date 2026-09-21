@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import type { JobApplication, PaginationMeta } from "@/lib/types/job-applications";
 import { getCompanyDisplayName, formatSalaryRange, formatAppliedDate } from "@/lib/format";
 import { api } from "@/lib/api";
+import { notify, getApiErrorMessage } from "@/components/Toast";
 
 import { FormModal } from "@/components/FormModal";
 import {
@@ -169,6 +170,7 @@ export default function ApplicationsPage() {
       await api.delete(`/job-applications/${deleteTarget.id}`);
 
       setIsDeleteOpen(false);
+      notify.delete("Application deleted");
 
       // Deleting the last item on a page beyond the first would leave an empty page.
       // Changing `page` already triggers a refetch, so only refresh manually otherwise.
@@ -189,10 +191,12 @@ export default function ApplicationsPage() {
     event.preventDefault();
     setIsSubmitting(true);
 
+    const isEdit = editingId !== null;
+
     try {
       const payload = buildApplicationPayload(formValues);
 
-      if (editingId !== null) {
+      if (isEdit) {
         await api.put(`/job-applications/${editingId}`, payload);
       } else {
         await api.post("/job-applications", payload);
@@ -201,9 +205,16 @@ export default function ApplicationsPage() {
 
       handleModalOpenChange(false);
       setRefreshKey((k) => k + 1);
+      if (isEdit) notify.edit("Application updated");
+      else notify.create("Application added");
     } catch (err) {
       console.error(err);
-      // axios errors: err.response?.data?.errors holds Laravel's 422 validation object
+      // Interim: shows Laravel's summary message. Per-field errors in the form come later
+      // (err.response?.data?.errors holds the 422 validation object).
+      notify.error(
+        isEdit ? "Couldn't update the application" : "Couldn't add the application",
+        getApiErrorMessage(err),
+      );
     } finally {
       setIsSubmitting(false);
     }
