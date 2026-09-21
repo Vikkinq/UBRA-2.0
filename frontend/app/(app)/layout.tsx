@@ -4,7 +4,11 @@ import { AppSidebar } from "@/components/app/AppSidebar";
 import { AppNavbar } from "@/components/app/AppNavbar";
 import { Toaster } from "@/components/ui/sonner";
 
-export default async function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const user = await getServerUser();
 
   return (
@@ -13,7 +17,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <div className="flex min-h-svh flex-1 flex-col">
         <AppNavbar />
         <main className="flex-1 p-6">
-          {children} <Toaster richColors closeButton />
+          {children}{" "}
+          <Toaster richColors closeButton position="top-right" />
         </main>
       </div>
     </SidebarProvider>
