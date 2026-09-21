@@ -29,6 +29,8 @@ class JobApplicationController extends Controller
         ];
     }
 
+    private const RESPONSE_RELATIONS = ['company.industry', 'status', 'employmentType', 'source'];
+
     public function index(Request $request): JsonResponse
     {
         $perPage = min(max((int) $request->integer('perPage', 15), 1), 100);
@@ -147,21 +149,11 @@ class JobApplicationController extends Controller
 
     public function store(JobApplicationStoreRequest $request)
     {
-        $data = $request->validated();
-
-        if (empty($data['company_id']) && !empty($data['company_name'])) {
-            $company = MdCompany::firstOrCreate(
-                ['name' => $data['company_name']],
-                ['industry_id' => $data['industry_id'] ?? null]
-            );
-
-            $data['company_id'] = $company->id;
-            $data['company_name'] = null;
-        }
-
+        $data = $this->resolveCompany($request->validated());
+ 
         $jobApplication = $request->user()->jobApplications()->create($data);
-
-        return response()->json($jobApplication->load(['company.industry', 'status']), 201);
+ 
+        return response()->json($jobApplication->load(self::RESPONSE_RELATIONS), 201);
     }
 
     public function show(JobApplication $jobApplication)
@@ -174,10 +166,10 @@ class JobApplicationController extends Controller
     public function update(JobApplicationUpdateRequest $request, JobApplication $jobApplication)
     {
         $this->authorizeOwnership($jobApplication);
-
-        $jobApplication->update($request->validated());
-
-        return $jobApplication->load(['company', 'status', 'employmentType', 'source']);
+ 
+        $jobApplication->update($this->resolveCompany($request->validated()));
+ 
+        return $jobApplication->load(self::RESPONSE_RELATIONS);
     }
 
     public function destroy(JobApplication $jobApplication)
@@ -192,5 +184,23 @@ class JobApplicationController extends Controller
     protected function authorizeOwnership(JobApplication $jobApplication): void
     {
         abort_unless($jobApplication->user_id === request()->user()->id, 403);
+    }
+
+    private function resolveCompany(array $data): array
+    {
+        if (empty($data['company_id']) && !empty($data['company_name'])) {
+            $company = MdCompany::firstOrCreate(
+                ['name' => trim($data['company_name'])],
+                ['industry_id' => $data['industry_id'] ?? null]
+            );
+ 
+            $data['company_id'] = $company->id;
+            $data['company_name'] = null;
+        }
+ 
+        // industry_id only describes the new company; it isn't stored on the application.
+        unset($data['industry_id']);
+ 
+        return $data;
     }
 }

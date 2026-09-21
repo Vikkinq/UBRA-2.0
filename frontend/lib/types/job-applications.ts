@@ -16,8 +16,15 @@ export interface JobApplication {
   company_name: string | null;
   company: NamedRelation | null;
   status: NamedRelation;
-  employmentType: NamedRelation | null;
+  employment_type: NamedRelation | null;
   source: NamedRelation | null;
+  created_at: string;
+}
+
+export interface CompanyOption {
+  id: number;
+  name: string;
+  industry: NamedRelation | null;
 }
 
 export interface PaginationMeta {

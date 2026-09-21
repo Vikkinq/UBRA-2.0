@@ -1,11 +1,15 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { FilterOption } from "@/lib/types/job-applications";
+import type { FilterOption, CompanyOption } from "@/lib/types/job-applications";
 
 export interface ApplicationFormValues {
+  companyMode: "existing" | "new";
+  companyId: string;
   companyName: string;
+  industryId: string;
   jobTitle: string;
   jobUrl: string;
   location: string;
@@ -20,7 +24,10 @@ export interface ApplicationFormValues {
 }
 
 export const emptyApplicationFormValues: ApplicationFormValues = {
+  companyMode: "existing",
+  companyId: "",
   companyName: "",
+  industryId: "",
   jobTitle: "",
   jobUrl: "",
   location: "",
@@ -40,6 +47,15 @@ interface ApplicationFormFieldsProps {
   statusOptions: FilterOption[];
   employmentTypeOptions: FilterOption[];
   sourceOptions: FilterOption[];
+  companyOptions: CompanyOption[];
+  industryOptions: FilterOption[];
+}
+
+function toSelectItems(options: FilterOption[]) {
+  return options.map((option) => ({
+    label: option.label ?? "Untitled",
+    value: String(option.value),
+  }));
 }
 
 export function ApplicationFormFields({
@@ -48,21 +64,100 @@ export function ApplicationFormFields({
   statusOptions,
   employmentTypeOptions,
   sourceOptions,
+  companyOptions,
+  industryOptions,
 }: ApplicationFormFieldsProps) {
   const update = <K extends keyof ApplicationFormValues>(key: K, value: ApplicationFormValues[K]) => {
     onChange({ ...values, [key]: value });
   };
 
+  const selectedCompany = companyOptions.find((c) => String(c.id) === values.companyId);
+
+  function switchCompanyMode(mode: "existing" | "new") {
+    onChange({
+      ...values,
+      companyMode: mode,
+      companyId: mode === "existing" ? values.companyId : "",
+      companyName: mode === "new" ? values.companyName : "",
+      industryId: mode === "new" ? values.industryId : "",
+    });
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <Label htmlFor="companyName">Company</Label>
-        <Input
-          id="companyName"
-          value={values.companyName}
-          onChange={(e) => update("companyName", e.target.value)}
-          placeholder="e.g. Northwind Labs"
-        />
+        <Label>Company</Label>
+
+        <div className="inline-flex w-fit rounded-md border border-border p-0.5">
+          <Button
+            type="button"
+            size="sm"
+            variant={values.companyMode === "existing" ? "default" : "ghost"}
+            className="h-7 px-3"
+            onClick={() => switchCompanyMode("existing")}
+          >
+            Existing Company
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={values.companyMode === "new" ? "default" : "ghost"}
+            className="h-7 px-3"
+            onClick={() => switchCompanyMode("new")}
+          >
+            New Company
+          </Button>
+        </div>
+
+        {values.companyMode === "existing" ? (
+          <>
+            <Select
+              items={companyOptions.map((c) => ({ label: c.name, value: String(c.id) }))}
+              value={values.companyId}
+              onValueChange={(v) => update("companyId", v)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a company" />
+              </SelectTrigger>
+              <SelectContent>
+                {companyOptions.map((c) => (
+                  <SelectItem key={c.id} value={String(c.id)}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedCompany && (
+              <p className="text-xs text-muted-foreground">
+                Industry: {selectedCompany.industry?.name ?? "Not set for this company"}
+              </p>
+            )}
+          </>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Input
+              value={values.companyName}
+              onChange={(e) => update("companyName", e.target.value)}
+              placeholder="e.g. Northwind Labs"
+            />
+            <Select
+              items={toSelectItems(industryOptions)}
+              value={values.industryId}
+              onValueChange={(v) => update("industryId", v)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select industry" />
+              </SelectTrigger>
+              <SelectContent>
+                {industryOptions.map((o) => (
+                  <SelectItem key={o.value} value={String(o.value)}>
+                    {o.label ?? "Untitled"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-2">
@@ -79,7 +174,11 @@ export function ApplicationFormFields({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
           <Label htmlFor="statusId">Status</Label>
-          <Select value={values.statusId} onValueChange={(value) => update("statusId", value)}>
+          <Select
+            items={toSelectItems(statusOptions)}
+            value={values.statusId}
+            onValueChange={(value) => update("statusId", value)}
+          >
             <SelectTrigger id="statusId">
               <SelectValue placeholder="Select status" />
             </SelectTrigger>
@@ -95,7 +194,11 @@ export function ApplicationFormFields({
 
         <div className="flex flex-col gap-2">
           <Label htmlFor="employmentTypeId">Employment Type</Label>
-          <Select value={values.employmentTypeId} onValueChange={(value) => update("employmentTypeId", value)}>
+          <Select
+            items={toSelectItems(employmentTypeOptions)}
+            value={values.employmentTypeId}
+            onValueChange={(value) => update("employmentTypeId", value)}
+          >
             <SelectTrigger id="employmentTypeId">
               <SelectValue placeholder="Select type" />
             </SelectTrigger>
@@ -113,7 +216,11 @@ export function ApplicationFormFields({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
           <Label htmlFor="sourceId">Source</Label>
-          <Select value={values.sourceId} onValueChange={(value) => update("sourceId", value)}>
+          <Select
+            items={toSelectItems(sourceOptions)}
+            value={values.sourceId}
+            onValueChange={(value) => update("sourceId", value)}
+          >
             <SelectTrigger id="sourceId">
               <SelectValue placeholder="Select source" />
             </SelectTrigger>
