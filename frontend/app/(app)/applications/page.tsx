@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Search, SlidersHorizontal, Plus, Inbox, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, SlidersHorizontal, Plus, Inbox, ChevronLeft, ChevronRight, Eye, Pencil, Trash2 } from "lucide-react";
 
 import { AppHeader } from "@/components/AppHeader";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -18,7 +18,10 @@ import {
   emptyApplicationFormValues,
   type ApplicationFormValues,
 } from "@/components/app/applications/ApplicationFormFields";
-import type { FilterOption } from "@/lib/types/job-applications";
+import { ApplicationQuickView } from "@/components/app/applications/ApplicationQuickView";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { getApplicationItemName, getApplicationSummaryFields } from "@/components/app/applications/ApplicationConfirm";
+import type { FilterOption, CompanyOption } from "@/lib/types/job-applications";
 
 export default function ApplicationsPage() {
   const [applications, setApplications] = useState<JobApplication[]>([]);
@@ -32,16 +35,47 @@ export default function ApplicationsPage() {
   const [statusOptions, setStatusOptions] = useState<FilterOption[]>([]);
   const [employmentTypeOptions, setEmploymentTypeOptions] = useState<FilterOption[]>([]);
   const [sourceOptions, setSourceOptions] = useState<FilterOption[]>([]);
+  const [companyOptions, setCompanyOptions] = useState<CompanyOption[]>([]);
+  const [industryOptions, setIndustryOptions] = useState<FilterOption[]>([]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formValues, setFormValues] = useState<ApplicationFormValues>(emptyApplicationFormValues);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  // null = the modal is in "Add" mode, a number = we're editing that application
+  const [editingId, setEditingId] = useState<number | null>(null);
+  // true when the edit was started from the QuickView drawer, so we can go back to it afterwards
+  const [returnToQuickView, setReturnToQuickView] = useState(false);
+
+  // Delete confirmation. The target is kept after closing so the dialog content
+  // doesn't disappear mid close-animation.
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<JobApplication | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  // true when the delete was started from the QuickView drawer, so Cancel can go back to it
+  const [deleteFromQuickView, setDeleteFromQuickView] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // QuickView: we only store the id; the application itself is derived from the loaded list.
+  const [quickViewId, setQuickViewId] = useState<number | null>(null);
+
+  const quickViewIndex = applications.findIndex((application) => application.id === quickViewId);
+  const quickViewApplication = quickViewIndex >= 0 ? applications[quickViewIndex] : null;
+
+  const quickViewNav = quickViewApplication
+    ? {
+        index: quickViewIndex,
+        total: applications.length,
+        onPrev: () => setQuickViewId(applications[quickViewIndex - 1].id),
+        onNext: () => setQuickViewId(applications[quickViewIndex + 1].id),
+      }
+    : undefined;
 
   function buildApplicationPayload(values: ApplicationFormValues) {
     return {
-      company_id: null, // no company picker/search built yet — always sending company_name for now
-      company_name: values.companyName || null,
+      company_id: values.companyMode === "existing" && values.companyId ? Number(values.companyId) : null,
+      company_name: values.companyMode === "new" ? values.companyName || null : null,
+      industry_id: values.companyMode === "new" && values.industryId ? Number(values.industryId) : null,
       status_id: values.statusId ? Number(values.statusId) : null,
       employment_type_id: values.employmentTypeId ? Number(values.employmentTypeId) : null,
       source_id: values.sourceId ? Number(values.sourceId) : null,
@@ -56,9 +90,99 @@ export default function ApplicationsPage() {
     };
   }
 
+  // Maps a saved application back into the form's shape (the reverse of buildApplicationPayload).
+  function buildFormValues(application: JobApplication): ApplicationFormValues {
+    const hasCompany = application.company !== null;
+
+    return {
+      ...emptyApplicationFormValues,
+      companyMode: hasCompany ? "existing" : "new",
+      companyId: application.company ? String(application.company.id) : "",
+      companyName: hasCompany ? "" : (application.company_name ?? ""),
+      industryId: "",
+      statusId: String(application.status.id),
+      employmentTypeId: application.employment_type ? String(application.employment_type.id) : "",
+      sourceId: application.source ? String(application.source.id) : "",
+      jobTitle: application.job_title,
+      jobUrl: application.job_url ?? "",
+      location: application.location ?? "",
+      salaryMin: application.salary_min ? String(Number(application.salary_min)) : "",
+      salaryMax: application.salary_max ? String(Number(application.salary_max)) : "",
+      salaryCurrency: application.salary_currency ?? emptyApplicationFormValues.salaryCurrency,
+      // <input type="date"> needs YYYY-MM-DD, even if the API returns a full datetime
+      appliedAt: application.applied_at ? application.applied_at.slice(0, 10) : "",
+      notes: application.notes ?? "",
+    };
+  }
+
   function openCreateModal() {
+    setEditingId(null);
     setFormValues(emptyApplicationFormValues);
     setIsModalOpen(true);
+  }
+
+  function openEditModal(application: JobApplication, fromQuickView = false) {
+    setEditingId(application.id);
+    setReturnToQuickView(fromQuickView);
+    setFormValues(buildFormValues(application));
+    setQuickViewId(null); // the drawer closes while the modal is open
+    setIsModalOpen(true);
+  }
+
+  // Runs on Cancel, Esc, X, and after a successful save. If the edit started from
+  // the QuickView, it brings the drawer back so the user lands where they started.
+  function handleModalOpenChange(open: boolean) {
+    setIsModalOpen(open);
+
+    if (!open && editingId !== null) {
+      if (returnToQuickView) setQuickViewId(editingId);
+      setEditingId(null);
+      setReturnToQuickView(false);
+    }
+  }
+
+  function openDeleteDialog(application: JobApplication, fromQuickView = false) {
+    setDeleteTarget(application);
+    setDeleteFromQuickView(fromQuickView);
+    setDeleteError(null);
+    setQuickViewId(null); // the drawer closes while the dialog is open
+    setIsDeleteOpen(true);
+  }
+
+  // Runs on Cancel, Esc and X (not after a successful delete). If the delete started
+  // from the drawer, go back to it.
+  function handleDeleteOpenChange(open: boolean) {
+    setIsDeleteOpen(open);
+
+    if (!open && deleteTarget && deleteFromQuickView) {
+      setQuickViewId(deleteTarget.id);
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    try {
+      await api.delete(`/job-applications/${deleteTarget.id}`);
+
+      setIsDeleteOpen(false);
+
+      // Deleting the last item on a page beyond the first would leave an empty page.
+      // Changing `page` already triggers a refetch, so only refresh manually otherwise.
+      if (applications.length === 1 && page > 1) {
+        setPage((p) => p - 1);
+      } else {
+        setRefreshKey((k) => k + 1);
+      }
+    } catch (err) {
+      console.error(err);
+      setDeleteError("Couldn't delete this application. Please try again.");
+    } finally {
+      setIsDeleting(false);
+    }
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -66,10 +190,16 @@ export default function ApplicationsPage() {
     setIsSubmitting(true);
 
     try {
-      await api.post("/job-applications", buildApplicationPayload(formValues));
+      const payload = buildApplicationPayload(formValues);
 
-      setIsModalOpen(false);
-      setPage(1);
+      if (editingId !== null) {
+        await api.put(`/job-applications/${editingId}`, payload);
+      } else {
+        await api.post("/job-applications", payload);
+        setPage(1); // new items show up on page 1; edits stay on the current page
+      }
+
+      handleModalOpenChange(false);
       setRefreshKey((k) => k + 1);
     } catch (err) {
       console.error(err);
@@ -109,6 +239,8 @@ export default function ApplicationsPage() {
           setStatusOptions(res.statuses);
           setEmploymentTypeOptions(res.employmentTypes);
           setSourceOptions(res.sources);
+          setCompanyOptions(res.companies);
+          setIndustryOptions(res.industries);
         }
       } catch (err) {
         if (!cancelled) {
@@ -177,7 +309,7 @@ export default function ApplicationsPage() {
                 Start tracking your job search by adding your first application.
               </p>
             </div>
-            <Button className="mt-2 gap-2">
+            <Button className="mt-2 gap-2" onClick={openCreateModal}>
               <Plus className="size-4" />
               Add Application
             </Button>
@@ -194,28 +326,55 @@ export default function ApplicationsPage() {
                 <TableHead>Location</TableHead>
                 <TableHead>Salary</TableHead>
                 <TableHead>Notes</TableHead>
+                <TableHead className="w-32">
+                  <span className="sr-only">Actions</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {applications.map((application) => (
-                <TableRow
-                  key={application.id}
-                  onClick={() => {
-                    // TODO: open QuickView drawer once it's built
-                    console.log("Open drawer for application", application.id);
-                  }}
-                  className="cursor-pointer"
-                >
+                <TableRow key={application.id} data-state={application.id === quickViewId ? "selected" : undefined}>
                   <TableCell className="text-muted-foreground">{formatAppliedDate(application.applied_at)}</TableCell>
                   <TableCell className="font-medium text-foreground">{getCompanyDisplayName(application)}</TableCell>
                   <TableCell className="text-muted-foreground">{application.job_title}</TableCell>
                   <TableCell>
                     <StatusBadge status={application.status.name} />
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{application.employmentType?.name ?? "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{application.employment_type?.name ?? "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{application.location ?? "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{formatSalaryRange(application)}</TableCell>
                   <TableCell className="max-w-48 truncate text-muted-foreground">{application.notes ?? "—"}</TableCell>
+                  <TableCell>
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8"
+                        aria-label={`Quick view ${application.job_title}`}
+                        onClick={() => setQuickViewId(application.id)}
+                      >
+                        <Eye className="size-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8"
+                        aria-label={`Edit ${application.job_title}`}
+                        onClick={() => openEditModal(application)}
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 text-muted-foreground hover:text-destructive"
+                        aria-label={`Delete ${application.job_title}`}
+                        onClick={() => openDeleteDialog(application)}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -271,9 +430,10 @@ export default function ApplicationsPage() {
       {/* Modal */}
       <FormModal
         open={isModalOpen}
-        onOpenChange={setIsModalOpen}
-        title="Add Application"
-        description="Track a new job application."
+        onOpenChange={handleModalOpenChange}
+        title={editingId !== null ? "Edit Application" : "Add Application"}
+        description={editingId !== null ? "Update the details of this application." : "Track a new job application."}
+        submitLabel={editingId !== null ? "Save Changes" : "Save"}
         onSubmit={handleSubmit}
         isSubmitting={isSubmitting}
       >
@@ -283,8 +443,35 @@ export default function ApplicationsPage() {
           statusOptions={statusOptions}
           employmentTypeOptions={employmentTypeOptions}
           sourceOptions={sourceOptions}
+          companyOptions={companyOptions}
+          industryOptions={industryOptions}
         />
       </FormModal>
+
+      {/* QuickView Drawer */}
+      <ApplicationQuickView
+        application={quickViewApplication}
+        statusOptions={statusOptions}
+        nav={quickViewNav}
+        onClose={() => setQuickViewId(null)}
+        onEdit={(application) => openEditModal(application, true)}
+        onDelete={(application) => openDeleteDialog(application, true)}
+      />
+
+      {/* Delete confirmation */}
+      {deleteTarget && (
+        <ConfirmDialog
+          open={isDeleteOpen}
+          onOpenChange={handleDeleteOpenChange}
+          type="delete"
+          entity="Job Application"
+          itemName={getApplicationItemName(deleteTarget)}
+          fields={getApplicationSummaryFields(deleteTarget)}
+          onConfirm={handleDelete}
+          isLoading={isDeleting}
+          error={deleteError}
+        />
+      )}
     </div>
   );
 }
