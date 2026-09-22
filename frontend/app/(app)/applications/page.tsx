@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 
 import { AppHeader } from "@/components/AppHeader";
-import { StatusBadge } from "@/components/StatusBadge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,6 +43,7 @@ import {
   type ApplicationFormValues,
 } from "@/components/app/applications/ApplicationFormFields";
 import { ApplicationQuickView } from "@/components/app/applications/ApplicationQuickView";
+import { StatusSelect } from "@/components/StatusSelect";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import {
   getApplicationItemName,
@@ -101,6 +101,12 @@ export default function ApplicationsPage() {
   // true when the delete was started from the QuickView drawer, so Cancel can go back to it
   const [deleteFromQuickView, setDeleteFromQuickView] =
     useState(false);
+
+  // Row ids with a status change in flight, so their select can show a spinner
+  // and reject further changes while saving.
+  const [savingStatusIds, setSavingStatusIds] = useState<Set<number>>(
+    new Set(),
+  );
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // QuickView: we only store the id; the application itself is derived from the loaded list.
@@ -220,6 +226,71 @@ export default function ApplicationsPage() {
       if (returnToQuickView) setQuickViewId(editingId);
       setEditingId(null);
       setReturnToQuickView(false);
+    }
+  }
+
+  async function handleStatusChange(
+    application: JobApplication,
+    option: FilterOption,
+  ) {
+    const previousStatus = application.status;
+    const optimisticStatus = {
+      id: option.value,
+      name: option.label ?? previousStatus.name,
+    };
+
+    setSavingStatusIds((ids) => new Set(ids).add(application.id));
+    setApplications((rows) =>
+      rows.map((row) =>
+        row.id === application.id
+          ? { ...row, status: optimisticStatus }
+          : row,
+      ),
+    );
+
+    try {
+      const res = await api.patch(
+        `/job-applications/${application.id}/status`,
+        { status_id: option.value },
+      );
+      const saved: JobApplication | undefined =
+        res.data?.data ?? res.data;
+
+      // Reconcile with the server's copy in case its name/casing differs from the option label.
+      if (saved?.status) {
+        setApplications((rows) =>
+          rows.map((row) =>
+            row.id === application.id
+              ? { ...row, status: saved.status }
+              : row,
+          ),
+        );
+      }
+
+      notify.edit("Status Updated", {
+        itemName: getApplicationItemName(application),
+        description: `moved to ${optimisticStatus.name}.`,
+      });
+    } catch (err) {
+      console.error(err);
+      // Roll back: the request failed, so the row shouldn't keep showing the new status.
+      setApplications((rows) =>
+        rows.map((row) =>
+          row.id === application.id
+            ? { ...row, status: previousStatus }
+            : row,
+        ),
+      );
+      notify.error("Status Change Failed", {
+        itemName: getApplicationItemName(application),
+        description: getApiErrorMessage(err),
+      });
+    } finally {
+      setSavingStatusIds((ids) => {
+        const next = new Set(ids);
+        next.delete(application.id);
+        return next;
+      });
     }
   }
 
@@ -506,7 +577,15 @@ export default function ApplicationsPage() {
                     {application.job_title}
                   </TableCell>
                   <TableCell>
-                    <StatusBadge status={application.status.name} />
+                    <StatusSelect
+                      value={String(application.status.id)}
+                      label={application.status.name}
+                      options={statusOptions}
+                      isSaving={savingStatusIds.has(application.id)}
+                      onChange={(option) =>
+                        handleStatusChange(application, option)
+                      }
+                    />
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {application.employment_type?.name ?? "—"}

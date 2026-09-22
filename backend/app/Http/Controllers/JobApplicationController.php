@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use App\Http\Requests\JobApplication\JobApplicationStoreRequest;
 use App\Http\Requests\JobApplication\JobApplicationUpdateRequest;
+use App\Http\Requests\JobApplication\JobApplicationUpdateStatusRequest;
 
 use App\Models\JobApplication;
 use App\Models\MdApplicationStatus;
@@ -169,6 +170,29 @@ class JobApplicationController extends Controller
  
         $jobApplication->update($this->resolveCompany($request->validated()));
  
+        return $jobApplication->load(self::RESPONSE_RELATIONS);
+    }
+
+    public function updateStatus(JobApplicationUpdateStatusRequest $request, JobApplication $jobApplication) 
+    {
+        $this->authorizeOwnership($jobApplication);
+
+        $previousStatusId = $jobApplication->status_id;
+        $newStatusId = $request->validated('status_id');
+
+        if ($previousStatusId !== $newStatusId) {
+            $jobApplication->update([
+                'status_id' => $newStatusId,
+            ]);
+
+            $jobApplication->history()->create([
+                'action' => 'status_changed',
+                'from_status_id' => $previousStatusId,
+                'to_status_id' => $newStatusId,
+                'changed_at' => now(),
+            ]);
+        }
+
         return $jobApplication->load(self::RESPONSE_RELATIONS);
     }
 
