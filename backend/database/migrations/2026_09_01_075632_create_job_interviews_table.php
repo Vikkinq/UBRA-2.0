@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('job_application_id')->constrained('job_applications')->cascadeOnDelete();
             $table->string('interview_type')->nullable();
+            $table->string('round_name')->nullable();
             $table->dateTime('scheduled_at')->nullable();
             $table->integer('duration')->nullable();
             $table->string('location')->nullable();
@@ -23,6 +24,8 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->string('outcome')->nullable();
             $table->timestamps();
+
+            $table->index(['job_application_id', 'scheduled_at']);
         });
     }
 
