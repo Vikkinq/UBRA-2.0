@@ -5,6 +5,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\JobApplicationController;
+use App\Http\Controllers\JobInterviewController;
 
 Route::get('/test', function () {
     return response()->json([
@@ -29,6 +30,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/job-applications/{jobApplication}', [JobApplicationController::class, 'update']);
     Route::patch('/job-applications/{jobApplication}/status', [JobApplicationController::class, 'updateStatus']);
     Route::delete('/job-applications/{jobApplication}', [JobApplicationController::class, 'destroy']);
+
+    Route::get('/job-interviews', [JobInterviewController::class, 'index']);
+    Route::post('/job-interviews', [JobInterviewController::class, 'store']);
 });
 
 // Admin App — Super Admin only

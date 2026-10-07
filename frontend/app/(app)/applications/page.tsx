@@ -1,63 +1,27 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  Search,
-  SlidersHorizontal,
-  Plus,
-  Inbox,
-  ChevronLeft,
-  ChevronRight,
-  Eye,
-  Pencil,
-  Trash2,
-} from "lucide-react";
+import { Search, SlidersHorizontal, Plus, Inbox, ChevronLeft, ChevronRight, Eye, Pencil, Trash2 } from "lucide-react";
 
 import { AppHeader } from "@/components/AppHeader";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import type {
-  JobApplication,
-  PaginationMeta,
-} from "@/lib/types/job-applications";
-import {
-  getCompanyDisplayName,
-  formatSalaryRange,
-  formatAppliedDate,
-} from "@/lib/format";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import type { JobApplication, PaginationMeta } from "@/lib/types/job-applications";
+import { getCompanyDisplayName, formatSalaryRange, formatAppliedDate } from "@/lib/format";
 import { api } from "@/lib/api";
 import { notify, getApiErrorMessage } from "@/components/Toast";
 
 import { FormModal } from "@/components/FormModal";
-import {
-  ApplicationFormFields,
-  emptyApplicationFormValues,
-  type ApplicationFormValues,
-} from "@/components/app/applications/ApplicationFormFields";
+import { ApplicationFormFields, emptyApplicationFormValues, type ApplicationFormValues } from "@/components/app/applications/ApplicationFormFields";
 import { ApplicationQuickView } from "@/components/app/applications/ApplicationQuickView";
 import { StatusSelect } from "@/components/StatusSelect";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import {
-  getApplicationItemName,
-  getApplicationSummaryFields,
-} from "@/components/app/applications/ApplicationConfirm";
-import type {
-  FilterOption,
-  CompanyOption,
-} from "@/lib/types/job-applications";
+import { getApplicationItemName, getApplicationSummaryFields } from "@/components/app/applications/ApplicationConfirm";
+import type { FilterOption, CompanyOption } from "@/lib/types/job-applications";
 
 export default function ApplicationsPage() {
-  const [applications, setApplications] = useState<JobApplication[]>(
-    [],
-  );
+  const [applications, setApplications] = useState<JobApplication[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -65,26 +29,14 @@ export default function ApplicationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [statusOptions, setStatusOptions] = useState<FilterOption[]>(
-    [],
-  );
-  const [employmentTypeOptions, setEmploymentTypeOptions] = useState<
-    FilterOption[]
-  >([]);
-  const [sourceOptions, setSourceOptions] = useState<FilterOption[]>(
-    [],
-  );
-  const [companyOptions, setCompanyOptions] = useState<
-    CompanyOption[]
-  >([]);
-  const [industryOptions, setIndustryOptions] = useState<
-    FilterOption[]
-  >([]);
+  const [statusOptions, setStatusOptions] = useState<FilterOption[]>([]);
+  const [employmentTypeOptions, setEmploymentTypeOptions] = useState<FilterOption[]>([]);
+  const [sourceOptions, setSourceOptions] = useState<FilterOption[]>([]);
+  const [companyOptions, setCompanyOptions] = useState<CompanyOption[]>([]);
+  const [industryOptions, setIndustryOptions] = useState<FilterOption[]>([]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formValues, setFormValues] = useState<ApplicationFormValues>(
-    emptyApplicationFormValues,
-  );
+  const [formValues, setFormValues] = useState<ApplicationFormValues>(emptyApplicationFormValues);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   // null = the modal is in "Add" mode, a number = we're editing that application
@@ -95,58 +47,38 @@ export default function ApplicationsPage() {
   // Delete confirmation. The target is kept after closing so the dialog content
   // doesn't disappear mid close-animation.
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] =
-    useState<JobApplication | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<JobApplication | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   // true when the delete was started from the QuickView drawer, so Cancel can go back to it
-  const [deleteFromQuickView, setDeleteFromQuickView] =
-    useState(false);
+  const [deleteFromQuickView, setDeleteFromQuickView] = useState(false);
 
   // Row ids with a status change in flight, so their select can show a spinner
   // and reject further changes while saving.
-  const [savingStatusIds, setSavingStatusIds] = useState<Set<number>>(
-    new Set(),
-  );
+  const [savingStatusIds, setSavingStatusIds] = useState<Set<number>>(new Set());
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // QuickView: we only store the id; the application itself is derived from the loaded list.
   const [quickViewId, setQuickViewId] = useState<number | null>(null);
 
-  const quickViewIndex = applications.findIndex(
-    (application) => application.id === quickViewId,
-  );
-  const quickViewApplication =
-    quickViewIndex >= 0 ? applications[quickViewIndex] : null;
+  const quickViewIndex = applications.findIndex((application) => application.id === quickViewId);
+  const quickViewApplication = quickViewIndex >= 0 ? applications[quickViewIndex] : null;
 
   const quickViewNav = quickViewApplication
     ? {
         index: quickViewIndex,
         total: applications.length,
-        onPrev: () =>
-          setQuickViewId(applications[quickViewIndex - 1].id),
-        onNext: () =>
-          setQuickViewId(applications[quickViewIndex + 1].id),
+        onPrev: () => setQuickViewId(applications[quickViewIndex - 1].id),
+        onNext: () => setQuickViewId(applications[quickViewIndex + 1].id),
       }
     : undefined;
 
   function buildApplicationPayload(values: ApplicationFormValues) {
     return {
-      company_id:
-        values.companyMode === "existing" && values.companyId
-          ? Number(values.companyId)
-          : null,
-      company_name:
-        values.companyMode === "new"
-          ? values.companyName || null
-          : null,
-      industry_id:
-        values.companyMode === "new" && values.industryId
-          ? Number(values.industryId)
-          : null,
+      company_id: values.companyMode === "existing" && values.companyId ? Number(values.companyId) : null,
+      company_name: values.companyMode === "new" ? values.companyName || null : null,
+      industry_id: values.companyMode === "new" && values.industryId ? Number(values.industryId) : null,
       status_id: values.statusId ? Number(values.statusId) : null,
-      employment_type_id: values.employmentTypeId
-        ? Number(values.employmentTypeId)
-        : null,
+      employment_type_id: values.employmentTypeId ? Number(values.employmentTypeId) : null,
       source_id: values.sourceId ? Number(values.sourceId) : null,
       job_title: values.jobTitle,
       job_url: values.jobUrl || null,
@@ -160,42 +92,26 @@ export default function ApplicationsPage() {
   }
 
   // Maps a saved application back into the form's shape (the reverse of buildApplicationPayload).
-  function buildFormValues(
-    application: JobApplication,
-  ): ApplicationFormValues {
+  function buildFormValues(application: JobApplication): ApplicationFormValues {
     const hasCompany = application.company !== null;
 
     return {
       ...emptyApplicationFormValues,
       companyMode: hasCompany ? "existing" : "new",
-      companyId: application.company
-        ? String(application.company.id)
-        : "",
+      companyId: application.company ? String(application.company.id) : "",
       companyName: hasCompany ? "" : (application.company_name ?? ""),
       industryId: "",
       statusId: String(application.status.id),
-      employmentTypeId: application.employment_type
-        ? String(application.employment_type.id)
-        : "",
-      sourceId: application.source
-        ? String(application.source.id)
-        : "",
+      employmentTypeId: application.employment_type ? String(application.employment_type.id) : "",
+      sourceId: application.source ? String(application.source.id) : "",
       jobTitle: application.job_title,
       jobUrl: application.job_url ?? "",
       location: application.location ?? "",
-      salaryMin: application.salary_min
-        ? String(Number(application.salary_min))
-        : "",
-      salaryMax: application.salary_max
-        ? String(Number(application.salary_max))
-        : "",
-      salaryCurrency:
-        application.salary_currency ??
-        emptyApplicationFormValues.salaryCurrency,
+      salaryMin: application.salary_min ? String(Number(application.salary_min)) : "",
+      salaryMax: application.salary_max ? String(Number(application.salary_max)) : "",
+      salaryCurrency: application.salary_currency ?? emptyApplicationFormValues.salaryCurrency,
       // <input type="date"> needs YYYY-MM-DD, even if the API returns a full datetime
-      appliedAt: application.applied_at
-        ? application.applied_at.slice(0, 10)
-        : "",
+      appliedAt: application.applied_at ? application.applied_at.slice(0, 10) : "",
       notes: application.notes ?? "",
     };
   }
@@ -206,10 +122,7 @@ export default function ApplicationsPage() {
     setIsModalOpen(true);
   }
 
-  function openEditModal(
-    application: JobApplication,
-    fromQuickView = false,
-  ) {
+  function openEditModal(application: JobApplication, fromQuickView = false) {
     setEditingId(application.id);
     setReturnToQuickView(fromQuickView);
     setFormValues(buildFormValues(application));
@@ -229,10 +142,7 @@ export default function ApplicationsPage() {
     }
   }
 
-  async function handleStatusChange(
-    application: JobApplication,
-    option: FilterOption,
-  ) {
+  async function handleStatusChange(application: JobApplication, option: FilterOption) {
     const previousStatus = application.status;
     const optimisticStatus = {
       id: option.value,
@@ -240,31 +150,15 @@ export default function ApplicationsPage() {
     };
 
     setSavingStatusIds((ids) => new Set(ids).add(application.id));
-    setApplications((rows) =>
-      rows.map((row) =>
-        row.id === application.id
-          ? { ...row, status: optimisticStatus }
-          : row,
-      ),
-    );
+    setApplications((rows) => rows.map((row) => (row.id === application.id ? { ...row, status: optimisticStatus } : row)));
 
     try {
-      const res = await api.patch(
-        `/job-applications/${application.id}/status`,
-        { status_id: option.value },
-      );
-      const saved: JobApplication | undefined =
-        res.data?.data ?? res.data;
+      const res = await api.patch(`/job-applications/${application.id}/status`, { status_id: option.value });
+      const saved: JobApplication | undefined = res.data?.data ?? res.data;
 
       // Reconcile with the server's copy in case its name/casing differs from the option label.
       if (saved?.status) {
-        setApplications((rows) =>
-          rows.map((row) =>
-            row.id === application.id
-              ? { ...row, status: saved.status }
-              : row,
-          ),
-        );
+        setApplications((rows) => rows.map((row) => (row.id === application.id ? { ...row, status: saved.status } : row)));
       }
 
       notify.edit("Status Updated", {
@@ -274,13 +168,7 @@ export default function ApplicationsPage() {
     } catch (err) {
       console.error(err);
       // Roll back: the request failed, so the row shouldn't keep showing the new status.
-      setApplications((rows) =>
-        rows.map((row) =>
-          row.id === application.id
-            ? { ...row, status: previousStatus }
-            : row,
-        ),
-      );
+      setApplications((rows) => rows.map((row) => (row.id === application.id ? { ...row, status: previousStatus } : row)));
       notify.error("Status Change Failed", {
         itemName: getApplicationItemName(application),
         description: getApiErrorMessage(err),
@@ -294,10 +182,7 @@ export default function ApplicationsPage() {
     }
   }
 
-  function openDeleteDialog(
-    application: JobApplication,
-    fromQuickView = false,
-  ) {
+  function openDeleteDialog(application: JobApplication, fromQuickView = false) {
     setDeleteTarget(application);
     setDeleteFromQuickView(fromQuickView);
     setDeleteError(null);
@@ -341,9 +226,7 @@ export default function ApplicationsPage() {
       }
     } catch (err) {
       console.error(err);
-      setDeleteError(
-        `Couldn't delete this application. ${getApiErrorMessage(err)}`,
-      );
+      setDeleteError(`Couldn't delete this application. ${getApiErrorMessage(err)}`);
     } finally {
       setIsDeleting(false);
     }
@@ -351,25 +234,16 @@ export default function ApplicationsPage() {
 
   // Name for the toast when a save fails: built from what's in the form,
   // since there is no saved record to read it from.
-  function getDraftName(
-    values: ApplicationFormValues,
-  ): string | null {
+  function getDraftName(values: ApplicationFormValues): string | null {
     const title = values.jobTitle.trim();
     if (!title) return null;
 
-    const company =
-      values.companyMode === "existing"
-        ? companyOptions.find(
-            (c) => String(c.id) === values.companyId,
-          )?.name
-        : values.companyName.trim();
+    const company = values.companyMode === "existing" ? companyOptions.find((c) => String(c.id) === values.companyId)?.name : values.companyName.trim();
 
     return company ? `${title} at ${company}` : title;
   }
 
-  async function handleSubmit(
-    event: React.FormEvent<HTMLFormElement>,
-  ) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSubmitting(true);
 
@@ -380,14 +254,9 @@ export default function ApplicationsPage() {
       const payload = buildApplicationPayload(formValues);
 
       // store() / update() return the saved application (or { data } if we move to a Resource).
-      const res = isEdit
-        ? await api.put(`/job-applications/${editingId}`, payload)
-        : await api.post("/job-applications", payload);
-      const saved: JobApplication | undefined =
-        res.data?.data ?? res.data;
-      const itemName = saved?.job_title
-        ? getApplicationItemName(saved)
-        : draftName;
+      const res = isEdit ? await api.put(`/job-applications/${editingId}`, payload) : await api.post("/job-applications", payload);
+      const saved: JobApplication | undefined = res.data?.data ?? res.data;
+      const itemName = saved?.job_title ? getApplicationItemName(saved) : draftName;
 
       if (!isEdit) setPage(1); // new items show up on page 1; edits stay on the current page
 
@@ -439,9 +308,7 @@ export default function ApplicationsPage() {
           ...(debouncedSearch && { search: debouncedSearch }),
         });
 
-        const { data: res } = await api.get(
-          `/job-applications?${params.toString()}`,
-        );
+        const { data: res } = await api.get(`/job-applications?${params.toString()}`);
 
         if (!cancelled) {
           setApplications(res.data);
@@ -454,11 +321,7 @@ export default function ApplicationsPage() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "Failed to load applications.",
-          );
+          setError(err instanceof Error ? err.message : "Failed to load applications.");
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -472,16 +335,11 @@ export default function ApplicationsPage() {
     };
   }, [page, debouncedSearch, refreshKey]);
 
-  const pages = meta
-    ? Array.from({ length: meta.lastPage }, (_, i) => i + 1)
-    : [];
+  const pages = meta ? Array.from({ length: meta.lastPage }, (_, i) => i + 1) : [];
 
   return (
     <div className="flex flex-col gap-6">
-      <AppHeader
-        title="Job Applications"
-        description="Track and manage every application you've submitted."
-      />
+      <AppHeader title="Job Applications" description="Track and manage every application you've submitted." />
 
       <div className="overflow-hidden rounded-lg border border-border">
         {/* Toolbar */}
@@ -489,12 +347,7 @@ export default function ApplicationsPage() {
           <div className="flex flex-1 items-center gap-2">
             <div className="relative w-full sm:max-w-xs">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search applications..."
-                className="pl-9"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+              <Input placeholder="Search applications..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
 
             <Button variant="outline" className="gap-2">
@@ -511,29 +364,18 @@ export default function ApplicationsPage() {
 
         <div className="border-t border-border" />
 
-        {error && (
-          <div className="px-4 py-3 text-sm text-destructive">
-            {error}
-          </div>
-        )}
+        {error && <div className="px-4 py-3 text-sm text-destructive">{error}</div>}
 
         {loading ? (
-          <div className="flex items-center justify-center px-6 py-16 text-sm text-muted-foreground">
-            Loading applications...
-          </div>
+          <div className="flex items-center justify-center px-6 py-16 text-sm text-muted-foreground">Loading applications...</div>
         ) : applications.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
             <div className="flex size-12 items-center justify-center rounded-full bg-muted">
               <Inbox className="size-5 text-muted-foreground" />
             </div>
             <div>
-              <p className="text-sm font-medium text-foreground">
-                No applications yet
-              </p>
-              <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-                Start tracking your job search by adding your first
-                application.
-              </p>
+              <p className="text-sm font-medium text-foreground">No applications yet</p>
+              <p className="mt-1 max-w-xs text-sm text-muted-foreground">Start tracking your job search by adding your first application.</p>
             </div>
             <Button className="mt-2 gap-2" onClick={openCreateModal}>
               <Plus className="size-4" />
@@ -559,46 +401,23 @@ export default function ApplicationsPage() {
             </TableHeader>
             <TableBody>
               {applications.map((application) => (
-                <TableRow
-                  key={application.id}
-                  data-state={
-                    application.id === quickViewId
-                      ? "selected"
-                      : undefined
-                  }
-                >
-                  <TableCell className="text-muted-foreground">
-                    {formatAppliedDate(application.applied_at)}
-                  </TableCell>
-                  <TableCell className="font-medium text-foreground">
-                    {getCompanyDisplayName(application)}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {application.job_title}
-                  </TableCell>
+                <TableRow key={application.id} data-state={application.id === quickViewId ? "selected" : undefined}>
+                  <TableCell className="text-muted-foreground">{formatAppliedDate(application.applied_at)}</TableCell>
+                  <TableCell className="font-medium text-foreground">{getCompanyDisplayName(application)}</TableCell>
+                  <TableCell className="text-muted-foreground">{application.job_title}</TableCell>
                   <TableCell>
                     <StatusSelect
                       value={String(application.status.id)}
                       label={application.status.name}
                       options={statusOptions}
                       isSaving={savingStatusIds.has(application.id)}
-                      onChange={(option) =>
-                        handleStatusChange(application, option)
-                      }
+                      onChange={(option) => handleStatusChange(application, option)}
                     />
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {application.employment_type?.name ?? "—"}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {application.location ?? "—"}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {formatSalaryRange(application)}
-                  </TableCell>
-                  <TableCell className="max-w-48 truncate text-muted-foreground">
-                    {application.notes ?? "—"}
-                  </TableCell>
+                  <TableCell className="text-muted-foreground">{application.employment_type?.name ?? "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{application.location ?? "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{formatSalaryRange(application)}</TableCell>
+                  <TableCell className="max-w-48 truncate text-muted-foreground">{application.notes ?? "—"}</TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
                       <Button
@@ -640,8 +459,7 @@ export default function ApplicationsPage() {
         {!loading && applications.length > 0 && meta && (
           <div className="flex flex-col items-center justify-between gap-3 border-t border-border px-4 py-3 sm:flex-row">
             <p className="text-sm text-muted-foreground">
-              Showing {meta.from ?? 0}-{meta.to ?? 0} of {meta.total}{" "}
-              applications
+              Showing {meta.from ?? 0}-{meta.to ?? 0} of {meta.total} applications
             </p>
 
             <div className="flex items-center gap-1">
@@ -657,15 +475,7 @@ export default function ApplicationsPage() {
               </Button>
 
               {pages.map((p) => (
-                <Button
-                  key={p}
-                  variant={
-                    p === meta.currentPage ? "default" : "outline"
-                  }
-                  size="icon"
-                  className="size-8"
-                  onClick={() => setPage(p)}
-                >
+                <Button key={p} variant={p === meta.currentPage ? "default" : "outline"} size="icon" className="size-8" onClick={() => setPage(p)}>
                   {p}
                 </Button>
               ))}
@@ -689,14 +499,8 @@ export default function ApplicationsPage() {
       <FormModal
         open={isModalOpen}
         onOpenChange={handleModalOpenChange}
-        title={
-          editingId !== null ? "Edit Application" : "Add Application"
-        }
-        description={
-          editingId !== null
-            ? "Update the details of this application."
-            : "Track a new job application."
-        }
+        title={editingId !== null ? "Edit Application" : "Add Application"}
+        description={editingId !== null ? "Update the details of this application." : "Track a new job application."}
         submitLabel={editingId !== null ? "Save Changes" : "Save"}
         onSubmit={handleSubmit}
         isSubmitting={isSubmitting}
@@ -719,9 +523,7 @@ export default function ApplicationsPage() {
         nav={quickViewNav}
         onClose={() => setQuickViewId(null)}
         onEdit={(application) => openEditModal(application, true)}
-        onDelete={(application) =>
-          openDeleteDialog(application, true)
-        }
+        onDelete={(application) => openDeleteDialog(application, true)}
       />
 
       {/* Delete confirmation */}
