@@ -33,6 +33,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/job-interviews', [JobInterviewController::class, 'index']);
     Route::post('/job-interviews', [JobInterviewController::class, 'store']);
+    Route::put('/job-interviews/{id}', [JobInterviewController::class, 'update']);
+    Route::patch('/job-interviews/{id}', [JobInterviewController::class, 'update']);
+    Route::delete('/job-interviews/{id}', [JobInterviewController::class, 'destroy']);
 });
 
 // Admin App — Super Admin only
