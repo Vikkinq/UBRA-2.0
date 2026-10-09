@@ -20,6 +20,34 @@ export function formatDateTime(date: string | null): string {
   });
 }
 
+/** Returns a local YYYY-MM-DD key for a Date or ISO datetime. */
+export function getLocalDateKey(value: Date | string): string {
+  const date = value instanceof Date ? value : new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/** Formats the local time portion of an interview datetime. */
+export function formatTime(value: string | null, fallback = "Unscheduled"): string {
+  if (!value) return fallback;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return fallback;
+  return date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+/** Splits a saved datetime into values for local date and time inputs. */
+export function getLocalDateTimeInputs(value: string | null): { date: string; time: string } {
+  if (!value) return { date: "", time: "" };
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return { date: "", time: "" };
+  return {
+    date: getLocalDateKey(date),
+    time: `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`,
+  };
+}
+
 /** "Sep 21, 2026". Returns the fallback for empty or invalid dates. */
 export function formatDate(value: string | null | undefined, fallback: string = EMPTY): string {
   if (!value) return fallback;

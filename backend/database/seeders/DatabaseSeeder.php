@@ -28,6 +28,7 @@ class DatabaseSeeder extends Seeder
             EmploymentTypeSeeder::class,
             JobSourceSeeder::class,
             UserSeeder::class,
+            CompanySeeder::class,
         ]);
     }
 }
