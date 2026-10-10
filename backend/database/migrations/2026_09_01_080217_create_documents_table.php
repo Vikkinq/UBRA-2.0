@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('documents', function (Blueprint $table) {
             $table->id();
+            $table->string('document_code')->unique();
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('job_application_id')->nullable()->constrained('job_applications')->nullOnDelete();
             $table->string('type');

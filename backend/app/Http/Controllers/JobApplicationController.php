@@ -16,9 +16,14 @@ use App\Models\MdEmploymentType;
 use App\Models\MdJobSource;
 use App\Models\MdIndustry;
 use App\Models\MdCompany;
+use App\Services\JobApplicationService;
 
 class JobApplicationController extends Controller
 {
+    public function __construct(private readonly JobApplicationService $applications)
+    {
+    }
+
     //
     protected function sortableColumns(): array
     {
@@ -150,9 +155,7 @@ class JobApplicationController extends Controller
 
     public function store(JobApplicationStoreRequest $request)
     {
-        $data = $this->resolveCompany($request->validated());
- 
-        $jobApplication = $request->user()->jobApplications()->create($data);
+        $jobApplication = $this->applications->create($request->user(), $request->validated());
  
         return response()->json($jobApplication->load(self::RESPONSE_RELATIONS), 201);
     }
@@ -168,7 +171,7 @@ class JobApplicationController extends Controller
     {
         $this->authorizeOwnership($jobApplication);
  
-        $jobApplication->update($this->resolveCompany($request->validated()));
+        $jobApplication = $this->applications->update($jobApplication, $request->validated());
  
         return $jobApplication->load(self::RESPONSE_RELATIONS);
     }
@@ -177,21 +180,7 @@ class JobApplicationController extends Controller
     {
         $this->authorizeOwnership($jobApplication);
 
-        $previousStatusId = $jobApplication->status_id;
-        $newStatusId = $request->validated('status_id');
-
-        if ($previousStatusId !== $newStatusId) {
-            $jobApplication->update([
-                'status_id' => $newStatusId,
-            ]);
-
-            $jobApplication->history()->create([
-                'action' => 'status_changed',
-                'from_status_id' => $previousStatusId,
-                'to_status_id' => $newStatusId,
-                'changed_at' => now(),
-            ]);
-        }
+        $jobApplication = $this->applications->changeStatus($jobApplication, (int) $request->validated('status_id'));
 
         return $jobApplication->load(self::RESPONSE_RELATIONS);
     }
@@ -210,21 +199,4 @@ class JobApplicationController extends Controller
         abort_unless($jobApplication->user_id === request()->user()->id, 403);
     }
 
-    private function resolveCompany(array $data): array
-    {
-        if (empty($data['company_id']) && !empty($data['company_name'])) {
-            $company = MdCompany::firstOrCreate(
-                ['name' => trim($data['company_name'])],
-                ['industry_id' => $data['industry_id'] ?? null]
-            );
- 
-            $data['company_id'] = $company->id;
-            $data['company_name'] = null;
-        }
- 
-        // industry_id only describes the new company; it isn't stored on the application.
-        unset($data['industry_id']);
- 
-        return $data;
-    }
 }

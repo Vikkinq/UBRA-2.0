@@ -10,6 +10,7 @@ class AuthenticationService
     {
         return [
             'id' => $user->id,
+            'user_code' => $user->user_code,
             'name' => $user->name,
             'email' => $user->email,
             'role' => $user->role,
