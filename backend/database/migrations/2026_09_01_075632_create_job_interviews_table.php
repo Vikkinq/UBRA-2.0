@@ -13,7 +13,9 @@ return new class extends Migration
     {
         Schema::create('job_interviews', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('job_application_id')->constrained('job_applications')->cascadeOnDelete();
+            $table->string('job_interview_code')->unique();
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('job_application_id');
             $table->string('interview_type')->nullable();
             $table->string('round_name')->nullable();
             $table->dateTime('scheduled_at')->nullable();
@@ -26,6 +28,11 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index(['job_application_id', 'scheduled_at']);
+            $table->index(['user_id', 'scheduled_at']);
+            $table->foreign(['job_application_id', 'user_id'])
+                ->references(['id', 'user_id'])
+                ->on('job_applications')
+                ->cascadeOnDelete();
         });
     }
 

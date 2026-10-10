@@ -5,6 +5,7 @@ export interface NamedRelation {
 
 export interface JobApplication {
   id: number;
+  job_application_code: string;
   job_title: string;
   job_url: string | null;
   location: string | null;

@@ -17,6 +17,7 @@ export type CareerProfile = {
 
 export type AuthUser = {
   id: number;
+  user_code: string;
   name: string;
   email: string;
   role: string;

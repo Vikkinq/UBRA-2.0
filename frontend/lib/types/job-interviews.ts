@@ -2,6 +2,8 @@ import type { JobApplication } from "./job-applications";
 
 export interface JobInterview {
   id: number;
+  job_interview_code: string;
+  user_id: number;
   job_application_id: number;
   interview_type: string | null;
   round_name: string | null;

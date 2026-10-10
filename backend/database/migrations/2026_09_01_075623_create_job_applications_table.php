@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('job_applications', function (Blueprint $table) {
             $table->id();
+            $table->string('job_application_code')->unique();
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('company_id')->nullable()->constrained('md_companies')->nullOnDelete();
             $table->string('company_name')->nullable();
@@ -31,6 +32,7 @@ return new class extends Migration
             $table->softDeletes();
 
             $table->index(['user_id', 'status_id']);
+            $table->unique(['id', 'user_id']);
         });
     }
 
