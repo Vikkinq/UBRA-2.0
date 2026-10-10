@@ -22,7 +22,7 @@ return new class extends Migration
             $table->string('github_url')->nullable();
             $table->string('portfolio_url')->nullable();
             $table->string('facebook_url')->nullable();
-            $table->string('photo_url')->nullable();
+            $table->text('photo_path')->nullable();
             $table->timestamps();
         });
     }
