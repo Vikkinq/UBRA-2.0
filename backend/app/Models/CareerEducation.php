@@ -10,7 +10,6 @@ class CareerEducation extends Model
     protected $table = 'career_educations';
 
     protected $fillable = [
-        'career_profile_id',
         'education_level',
         'institution_name',
         'degree',

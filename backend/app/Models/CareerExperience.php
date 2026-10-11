@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 class CareerExperience extends Model
 {
     protected $fillable = [
-        'career_profile_id',
         'job_title',
         'company_name',
         'location',

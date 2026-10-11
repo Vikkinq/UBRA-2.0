@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\JobApplicationController;
 use App\Http\Controllers\JobInterviewController;
+use App\Http\Controllers\CareerProfileController;
 
 Route::get('/test', function () {
     return response()->json([
@@ -36,6 +37,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/job-interviews/{id}', [JobInterviewController::class, 'update']);
     Route::patch('/job-interviews/{id}', [JobInterviewController::class, 'update']);
     Route::delete('/job-interviews/{id}', [JobInterviewController::class, 'destroy']);
+
+    Route::get('/career-profile', [CareerProfileController::class, 'show']);
+    Route::put('/career-profile', [CareerProfileController::class, 'update']);
+    Route::patch('/career-profile', [CareerProfileController::class, 'update']);
+    Route::post('/career-profile/photo', [CareerProfileController::class, 'updatePhoto'])->middleware('throttle:10,1');
+    Route::delete('/career-profile/photo', [CareerProfileController::class, 'destroyPhoto']);
 });
 
 // Admin App — Super Admin only

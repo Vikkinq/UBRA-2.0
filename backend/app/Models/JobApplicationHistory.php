@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Model;
 
 class JobApplicationHistory extends Model
@@ -24,6 +25,11 @@ class JobApplicationHistory extends Model
     public function jobApplication()
     {
         return $this->belongsTo(JobApplication::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 
     public function fromStatus()

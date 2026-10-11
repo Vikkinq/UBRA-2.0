@@ -55,6 +55,10 @@ class UserSeeder extends Seeder
                 }
 
                 $user->save();
+
+                if ($user->role === 'User') {
+                    $user->careerProfile()->firstOrCreate();
+                }
             });
         }
     }

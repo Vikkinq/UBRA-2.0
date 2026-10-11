@@ -13,13 +13,20 @@ return new class extends Migration
     {
         Schema::create('job_application_histories', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('job_application_id')->constrained('job_applications')->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->unsignedBigInteger('job_application_id');
             $table->string('action');
             $table->foreignId('from_status_id')->nullable()->constrained('md_application_statuses')->nullOnDelete();
             $table->foreignId('to_status_id')->nullable()->constrained('md_application_statuses')->nullOnDelete();
             $table->text('note')->nullable();
             $table->timestamp('changed_at');
             $table->timestamps();
+
+            $table->index(['user_id', 'job_application_id']);
+            $table->foreign(['job_application_id', 'user_id'])
+                ->references(['id', 'user_id'])
+                ->on('job_applications')
+                ->cascadeOnDelete();
         });
     }
 
