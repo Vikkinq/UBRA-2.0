@@ -103,11 +103,13 @@ class JobApplicationService
         }
 
         $application->update(['status_id' => $targetStatus->id]);
-        $application->history()->create([
+        $history = $application->history()->make([
             'action' => 'status_changed',
             'from_status_id' => $currentStatus->id,
             'to_status_id' => $targetStatus->id,
             'changed_at' => Carbon::now(config('app.timezone')),
         ]);
+        $history->user_id = $application->user_id;
+        $history->save();
     }
 }
