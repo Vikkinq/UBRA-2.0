@@ -51,4 +51,9 @@ class CareerProfile extends Model
     {
         return $this->hasMany(CareerEducation::class)->orderBy('sort_order');
     }
+
+    public function skills(): HasMany
+    {
+        return $this->hasMany(CareerSkill::class)->orderBy('sort_order');
+    }
 }

@@ -43,7 +43,7 @@ export function AppSidebar({ user }: { user?: AppUser | null }) {
   const pathname = usePathname();
 
   return (
-    <Sidebar collapsible="icon" className="relative">
+    <Sidebar collapsible="icon">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>

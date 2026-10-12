@@ -4,6 +4,7 @@ namespace App\Http\Requests\CareerProfile;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class CareerProfileUpdateRequest extends FormRequest
 {
@@ -72,6 +73,48 @@ class CareerProfileUpdateRequest extends FormRequest
             ],
             'educations.*.is_currently_enrolled' => ['sometimes', 'boolean'],
             'educations.*.description' => ['sometimes', 'nullable', 'string', 'max:5000'],
+
+            // Skills
+            'skills' => ['sometimes', 'array', 'max:100'],
+            'skills.*' => ['required', 'array:id,name'],
+            'skills.*.id' => ['sometimes', 'nullable', 'integer', 'distinct'],
+            'skills.*.name' => ['required', 'string', 'max:255'],
+        ];
+    }
+
+    /**
+     * Validate that a profile does not contain duplicate skill names, ignoring case and surrounding spaces.
+     *
+     * @return array<int, \Closure>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                $skills = $this->input('skills', []);
+                if (! is_array($skills)) {
+                    return;
+                }
+
+                $seenNames = [];
+                foreach ($skills as $index => $skill) {
+                    if (! is_array($skill) || ! isset($skill['name']) || ! is_string($skill['name'])) {
+                        continue;
+                    }
+
+                    $normalizedName = mb_strtolower(trim($skill['name']));
+                    if ($normalizedName === '') {
+                        continue;
+                    }
+
+                    if (isset($seenNames[$normalizedName])) {
+                        $validator->errors()->add("skills.{$index}.name", 'Each skill name must be unique within your profile.');
+                        continue;
+                    }
+
+                    $seenNames[$normalizedName] = true;
+                }
+            },
         ];
     }
 }
