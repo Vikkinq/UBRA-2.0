@@ -19,12 +19,13 @@ class CareerProfileService
         return $user->careerProfile()->firstOrCreate()->load([
             'experiences.employmentType',
             'educations',
+            'skills',
         ]);
     }
 
     /**
      * Update career profile fields and synchronize any supplied child collections.
-     * A supplied experiences or educations array is treated as the complete collection.
+     * A supplied experiences, educations, or skills array is treated as the complete collection.
      *
      * @param array<string, mixed> $data
      */
@@ -33,7 +34,7 @@ class CareerProfileService
         return DB::transaction(function () use ($user, $data): CareerProfile {
             $careerProfile = $user->careerProfile()->firstOrCreate();
 
-            $profileFields = collect($data)->except(['experiences', 'educations'])->all();
+            $profileFields = collect($data)->except(['experiences', 'educations', 'skills'])->all();
             $careerProfile->fill($profileFields);
             $careerProfile->save();
 
@@ -45,9 +46,14 @@ class CareerProfileService
                 $this->syncEducations($careerProfile, $data['educations']);
             }
 
+            if (array_key_exists('skills', $data)) {
+                $this->syncSkills($careerProfile, $data['skills']);
+            }
+
             return $careerProfile->load([
                 'experiences.employmentType',
                 'educations',
+                'skills',
             ]);
         });
     }
@@ -110,6 +116,35 @@ class CareerProfileService
         }
 
         $careerProfile->educations()->whereNotIn('id', $retainedIds)->delete();
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $skills
+     */
+    private function syncSkills(CareerProfile $careerProfile, array $skills): void
+    {
+        $retainedIds = [];
+
+        foreach (array_values($skills) as $sortOrder => $skillData) {
+            $skillId = $skillData['id'] ?? null;
+            $name = trim($skillData['name']);
+            $skillData = [
+                'name' => $name,
+                'sort_order' => $sortOrder,
+            ];
+
+            if ($skillId !== null) {
+                $skill = $careerProfile->skills()->whereKey($skillId)->firstOrFail();
+                $skill->update($skillData);
+                $retainedIds[] = $skill->id;
+                continue;
+            }
+
+            $skill = $careerProfile->skills()->create($skillData);
+            $retainedIds[] = $skill->id;
+        }
+
+        $careerProfile->skills()->whereNotIn('id', $retainedIds)->delete();
     }
 
     // Career Profile Photos
